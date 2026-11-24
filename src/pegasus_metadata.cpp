@@ -286,7 +286,7 @@ std::string PlatformFromRomPath(const std::string &rom) {
   std::string ext = LowerAscii(path.extension().u8string());
   if (ext == ".zip" || ext == ".7z") {
     // Container: try the inner stem's extension as a weak hint.
-    ext = LowerAscii(fs::u8path(path.stem()).extension().u8string());
+    ext = LowerAscii(path.stem().extension().u8string());
   }
   if (ext == ".nes" || ext == ".fds" || ext == ".unf" || ext == ".unif") return "FC";
   if (ext == ".sfc" || ext == ".smc") return "SFC";
