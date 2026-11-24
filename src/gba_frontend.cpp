@@ -281,7 +281,7 @@ const std::string *GbaFrontend::PlatformForTab(int tab) const {
 void GbaFrontend::BuildPlatformTabs() {
   platform_tabs_.clear();
   platform_by_tab_.clear();
-  static const char *const kOrder[] = {"FC", "SFC", "MD", "SMS", "GG", "GB", "GBC", "PCE", "WS", "NGP"};
+  static const char *const kOrder[] = {"FC", "SFC", "MD", "SMS", "GG", "GB", "GBC", "PCE", "WS", "NGP", "街机FBNEO", "街机MAME"};
   std::vector<std::string> present;
   for (const GbaGame &game : games_) {
     if (IsExtendedPlatform(game.platform) &&
