@@ -43,6 +43,8 @@ inline const char *PlatformDefaultCore(const std::string &platform) {
   if (platform == "PCE") return "mednafen_pce";
   if (platform == "WS") return "mednafen_wswan";
   if (platform == "NGP") return "mednafen_ngp";
+  if (platform == "ARC" || platform == "街机FBNEO") return "fbneo";
+  if (platform == "街机MAME") return "mame2003_plus";
   return "mgba";
 }
 

@@ -13,7 +13,7 @@ LOG_FILE="$LOG_DIR/PegasusG-by-ROC.log"
 RA_BIN="${PEGASUSG_RA_BIN:-/userdata/app/retroarch/retroarch}"
 CORES_DIR="${PEGASUSG_CORES_DIR:-/userdata/app/retroarch/.config/cores}"
 FONT="${PEGASUSG_FONT:-/userdata/app/retroarch/.config/assets/pkg/chinese-fallback-font.ttf}"
-CONTENT_ROOTS="${PEGASUSG_CONTENT_ROOTS:-/mnt/sdcard/roms/GBA:/mnt/sdcard/roms/GBA hack:/mnt/sdcard/roms/GBA vib:/mnt/sdcard/roms/FC:/mnt/sdcard/roms/SFC:/mnt/sdcard/roms/MD:/mnt/sdcard/roms/SMS:/mnt/sdcard/roms/GG:/mnt/sdcard/roms/GB:/mnt/sdcard/roms/PCE}"
+CONTENT_ROOTS="${PEGASUSG_CONTENT_ROOTS:-/mnt/sdcard/roms/GBA:/mnt/sdcard/roms/GBA hack:/mnt/sdcard/roms/GBA vib:/mnt/sdcard/roms/FC:/mnt/sdcard/roms/SFC:/mnt/sdcard/roms/MD:/mnt/sdcard/roms/SMS:/mnt/sdcard/roms/GG:/mnt/sdcard/roms/GB:/mnt/sdcard/roms/PCE:/mnt/sdcard/roms/FBNEO:/mnt/sdcard/roms/MAME}"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -53,6 +53,10 @@ core_for_choice() {
     genesis_plus_gx) echo genesis_plus_gx_libretro.so ;;
     picodrive) echo picodrive_libretro.so ;;
     gambatte) echo gambatte_libretro.so ;;
+    fbneo) echo fbneo_libretro.so ;;
+    fbalpha2012) echo fbalpha2012_libretro.so ;;
+    mame2003_plus) echo mame2003_plus_libretro.so ;;
+    mame2010) echo mame2010_libretro.so ;;
     *) echo mgba_libretro.so ;;
   esac
 }

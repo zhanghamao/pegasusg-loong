@@ -268,6 +268,8 @@ std::string PlatformFromText(const std::string &collection, const fs::path &dire
       {{"pce", "pc engine", "turbografx", "天外魔境"}, "PCE"},
       {{"ws", "wonderswan"}, "WS"},
       {{"ngp", "neogeo pocket", "neo geo pocket"}, "NGP"},
+      {{"mame"}, "街机MAME"},
+      {{"fbneo", "fb alpha", "fbalpha", "finalburn", "街机", "arcade"}, "街机FBNEO"},
   };
   // Longest/highest-specificity first: GBC before GB.
   for (const auto &rule : kRules) {
