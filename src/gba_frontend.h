@@ -88,6 +88,8 @@ class GbaFrontend {
   void PrewarmNextGameAsset();
   void BuildPlatformTabs();
   int TabCount() const;
+  int RecentTab() const;
+  int FavoriteTab() const;
   int WrappedTabIndex(int index) const;
   const char *TabLabel(int tab) const;
   int TabWidth(int tab) const;
@@ -172,7 +174,7 @@ class GbaFrontend {
   int hall_state_ = -1;
   std::uint64_t next_recent_order_ = 1;
 
-  int active_tab_ = 1;
+  int active_tab_ = 0;
   std::vector<std::string> platform_tabs_;                  // extra tabs beyond the 5 base ones
   std::unordered_map<int, std::string> platform_by_tab_;    // tab index -> platform id
   int selected_ = 0;

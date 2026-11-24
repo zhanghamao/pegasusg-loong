@@ -37,12 +37,8 @@ constexpr int kExitRestartSystem = 23;
 constexpr int kExitPowerOffSystem = 24;
 constexpr int kExitSuspendAutomaticDeep = 25;
 constexpr size_t kImageCacheCapacity = 64;
-constexpr int kTabRecent = 0;
-constexpr int kTabGba = 1;
-constexpr int kTabMod = 2;
-constexpr int kTabRumble = 3;
-constexpr int kTabFavorite = 4;
-constexpr int kTabCount = 5;
+constexpr int kTabGba = 0;
+constexpr int kTabCount = 1;
 constexpr Uint32 kCoverScaleDuration = 150;
 constexpr Uint32 kTabTransitionDuration = 240;
 constexpr Uint32 kChromeTransitionDuration = 300;
@@ -68,9 +64,9 @@ constexpr int kDescriptionBaseFontSize = 14;
 constexpr int kFontSizeLevelCount = 6;
 constexpr int kDescriptionTextHeight = 171;
 constexpr const char *kTabs[kTabCount] = {
-    "最近游戏", "GBA", "GBA改版", "GBA震动", "收藏",
+    "GBA",
 };
-constexpr int kTabWidths[kTabCount] = {112, 78, 110, 106, 82};
+constexpr int kTabWidths[kTabCount] = {78};
 
 constexpr SDL_Color kBackground{3, 4, 5, 255};
 constexpr SDL_Color kPanel{8, 9, 10, 255};
@@ -246,8 +242,12 @@ std::string FirstExisting(const std::vector<std::string> &paths) {
 }  // namespace
 
 int GbaFrontend::TabCount() const {
-  return kTabCount + static_cast<int>(platform_tabs_.size());
+  return kTabCount + static_cast<int>(platform_tabs_.size()) + 2;  // GBA + platforms + 最近游戏 + 收藏
 }
+
+int GbaFrontend::RecentTab() const { return TabCount() - 2; }
+
+int GbaFrontend::FavoriteTab() const { return TabCount() - 1; }
 
 int GbaFrontend::WrappedTabIndex(int index) const {
   const int count = TabCount();
@@ -257,8 +257,10 @@ int GbaFrontend::WrappedTabIndex(int index) const {
 const char *GbaFrontend::TabLabel(int tab) const {
   if (tab < kTabCount) return kTabs[tab];
   const auto it = platform_by_tab_.find(tab);
-  if (it == platform_by_tab_.end()) return "?";
-  return it->second.c_str();
+  if (it != platform_by_tab_.end()) return it->second.c_str();
+  if (tab == RecentTab()) return "最近游戏";
+  if (tab == FavoriteTab()) return "收藏";
+  return "?";
 }
 
 int GbaFrontend::TabWidth(int tab) const {
@@ -624,7 +626,7 @@ int GbaFrontend::Run() {
         status_.charging = true;
       }
       else if (options_.screenshot_action == "version-menu") {
-        active_tab_ = kTabMod;
+        active_tab_ = kTabGba;
         selected_ = 0;
         scroll_row_ = 0;
         RefreshVisible();
@@ -638,7 +640,7 @@ int GbaFrontend::Run() {
           Handle(Action::Confirm);
         }
       } else if (options_.screenshot_action == "xianjian-video-reuse") {
-        active_tab_ = kTabMod;
+        active_tab_ = kTabGba;
         selected_ = 0;
         scroll_row_ = 0;
         RefreshVisible();
@@ -654,7 +656,7 @@ int GbaFrontend::Run() {
         select_title("仙剑奇侠传 1卷");
         select_title("仙剑奇侠传 2卷");
       } else if (options_.screenshot_action == "longest-title") {
-        active_tab_ = kTabMod;
+        active_tab_ = kTabGba;
         selected_ = 0;
         scroll_row_ = 0;
         RefreshVisible();
@@ -677,7 +679,7 @@ int GbaFrontend::Run() {
           SelectionChanged();
         }
       } else if (options_.screenshot_action == "empty-favorite") {
-        active_tab_ = kTabFavorite;
+        active_tab_ = FavoriteTab();
         selected_ = 0;
         scroll_row_ = 0;
         RefreshVisible();
@@ -714,9 +716,7 @@ int GbaFrontend::Run() {
                  options_.screenshot_action == "launch-hack" ||
                  options_.screenshot_action == "launch-vib" ||
                  options_.screenshot_action == "launch-version-second") {
-        if (options_.screenshot_action == "launch-og2") active_tab_ = kTabGba;
-        else if (options_.screenshot_action == "launch-vib") active_tab_ = kTabRumble;
-        else active_tab_ = kTabMod;
+        active_tab_ = kTabGba;
         selected_ = 0;
         scroll_row_ = 0;
         RefreshVisible();
@@ -1366,14 +1366,12 @@ void GbaFrontend::Handle(Action action) {
       }
       state_.Save(games_);
       SetOsd(game->favorite ? "已加入收藏" : "已取消收藏");
-      if (!game->favorite && active_tab_ == kTabFavorite) {
+      if (!game->favorite && active_tab_ == FavoriteTab()) {
         int target_tab = kTabGba;
         if (game->platform != "GBA") {
           for (const auto &[tab, platform] : platform_by_tab_) {
             if (platform == game->platform) { target_tab = tab; break; }
           }
-        } else {
-          target_tab = game->is_rumble ? kTabRumble : game->is_mod ? kTabMod : kTabGba;
         }
         active_tab_ = target_tab;
       }
@@ -1437,15 +1435,12 @@ void GbaFrontend::RefreshVisible() {
     if (tab_platform) {
       if (game.platform != *tab_platform) continue;
     } else {
-      if (active_tab_ == kTabRecent && game.recent_order == 0) continue;
-      if (active_tab_ == kTabGba && (game.is_mod || game.is_rumble)) continue;
-      if (active_tab_ == kTabMod && (!game.is_mod || game.is_rumble)) continue;
-      if (active_tab_ == kTabRumble && !game.is_rumble) continue;
+      if (active_tab_ == RecentTab() && game.recent_order == 0) continue;
     }
-    if (active_tab_ == kTabFavorite && !game.favorite) continue;
+    if (active_tab_ == FavoriteTab() && !game.favorite) continue;
     visible_.push_back(i);
   }
-  if (active_tab_ == kTabRecent) {
+  if (active_tab_ == RecentTab()) {
     std::sort(visible_.begin(), visible_.end(), [&](int left, int right) {
       return games_[left].recent_order > games_[right].recent_order;
     });
