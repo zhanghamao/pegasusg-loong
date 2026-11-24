@@ -56,7 +56,8 @@ bool IsRomExtension(const fs::path &path) {
          ext == ".md" || ext == ".gen" || ext == ".smd" || ext == ".sgd" ||
          ext == ".sms" || ext == ".gg" || ext == ".pce" ||
          ext == ".ws" || ext == ".wsc" ||
-         ext == ".ngp" || ext == ".ngc" || ext == ".ngpd";
+         ext == ".ngp" || ext == ".ngc" || ext == ".ngpd" ||
+         ext == ".chd" || ext == ".pbp" || ext == ".cue" || ext == ".bin" || ext == ".iso";
 }
 
 std::string StableId(const std::string &text) {
@@ -258,14 +259,15 @@ std::string PlatformFromText(const std::string &collection, const fs::path &dire
   const std::string text = LowerAscii(Trim(collection)) + " " +
                            LowerAscii(directory.filename().u8string());
   static const std::vector<std::pair<std::vector<const char *>, const char *>> kRules = {
-      {{"fc", "nes", "famicom", "红白机", "8位机"}, "FC"},
       {{"sfc", "snes", "super famicom", "超级任天堂", "超任"}, "SFC"},
+      {{"fc", "nes", "famicom", "红白机", "8位机"}, "FC"},
       {{"md", "mega drive", "megadrive", "genesis", "世嘉md", "世嘉16"}, "MD"},
       {{"sms", "master system", "世嘉8"}, "SMS"},
       {{"gg", "game gear", "gamegear"}, "GG"},
       {{"gb ", "game boy", "gameboy"}, "GB"},
       {{"gbc", "game boy color"}, "GBC"},
       {{"pce", "pc engine", "turbografx", "天外魔境"}, "PCE"},
+      {{"psx", "ps1", "psone", "playstation"}, "PSX"},
       {{"ws", "wonderswan"}, "WS"},
       {{"ngp", "neogeo pocket", "neo geo pocket"}, "NGP"},
       {{"mame"}, "街机MAME"},
@@ -300,6 +302,7 @@ std::string PlatformFromRomPath(const std::string &rom) {
   if (ext == ".ngp" || ext == ".ngc" || ext == ".ngpd") return "NGP";
   if (ext == ".gb") return "GB";
   if (ext == ".gbc") return "GBC";
+  if (ext == ".chd" || ext == ".pbp" || ext == ".cue" || ext == ".bin" || ext == ".iso") return "PSX";
   return "GBA";
 }
 

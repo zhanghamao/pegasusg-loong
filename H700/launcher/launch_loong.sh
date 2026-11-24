@@ -13,7 +13,7 @@ LOG_FILE="$LOG_DIR/PegasusG-by-ROC.log"
 RA_BIN="${PEGASUSG_RA_BIN:-/userdata/app/retroarch/retroarch}"
 CORES_DIR="${PEGASUSG_CORES_DIR:-/userdata/app/retroarch/.config/cores}"
 FONT="${PEGASUSG_FONT:-/userdata/app/retroarch/.config/assets/pkg/chinese-fallback-font.ttf}"
-CONTENT_ROOTS="${PEGASUSG_CONTENT_ROOTS:-/mnt/sdcard/roms/GBA:/mnt/sdcard/roms/GBA hack:/mnt/sdcard/roms/GBA vib:/mnt/sdcard/roms/FC:/mnt/sdcard/roms/SFC:/mnt/sdcard/roms/MD:/mnt/sdcard/roms/SMS:/mnt/sdcard/roms/GG:/mnt/sdcard/roms/GB:/mnt/sdcard/roms/PCE:/mnt/sdcard/roms/FBNEO:/mnt/sdcard/roms/MAME}"
+CONTENT_ROOTS="${PEGASUSG_CONTENT_ROOTS:-/mnt/sdcard/roms/GBA:/mnt/sdcard/roms/GBA hack:/mnt/sdcard/roms/GBA vib:/mnt/sdcard/roms/FC:/mnt/sdcard/roms/SFC:/mnt/sdcard/roms/MD:/mnt/sdcard/roms/SMS:/mnt/sdcard/roms/GG:/mnt/sdcard/roms/GB:/mnt/sdcard/roms/PCE:/mnt/sdcard/roms/PSX:/mnt/sdcard/roms/FBNEO:/mnt/sdcard/roms/MAME}"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -33,6 +33,7 @@ frontend_env() {
   export SDL_VIDEODRIVER=wayland
   export SDL_AUDIODRIVER=alsa
   export SDL_NOMOUSE=1
+  export SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS=1
   export PEGASUSG_APP_DIR="$APP_DIR"
   export PEGASUSG_DEVICE=loong
   export PEGASUSG_STATE_DIR="$STATE_DIR"
@@ -53,6 +54,7 @@ core_for_choice() {
     genesis_plus_gx) echo genesis_plus_gx_libretro.so ;;
     picodrive) echo picodrive_libretro.so ;;
     gambatte) echo gambatte_libretro.so ;;
+    pcsx_rearmed) echo pcsx_rearmed_libretro.so ;;
     fbneo) echo fbneo_libretro.so ;;
     fbalpha2012) echo fbalpha2012_libretro.so ;;
     mame2003_plus) echo mame2003_plus_libretro.so ;;

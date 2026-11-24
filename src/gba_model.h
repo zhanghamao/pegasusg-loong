@@ -41,6 +41,7 @@ inline const char *PlatformDefaultCore(const std::string &platform) {
   if (platform == "GB") return "gambatte";
   if (platform == "GBC") return "gambatte";
   if (platform == "PCE") return "mednafen_pce";
+  if (platform == "PSX") return "pcsx_rearmed";
   if (platform == "WS") return "mednafen_wswan";
   if (platform == "NGP") return "mednafen_ngp";
   if (platform == "ARC" || platform == "街机FBNEO") return "fbneo";
