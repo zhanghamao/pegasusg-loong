@@ -197,9 +197,7 @@ SDL_Color WithOpacity(SDL_Color color, float opacity) {
   return color;
 }
 
-int WrappedTab(int index) {
-  return (index % kTabCount + kTabCount) % kTabCount;
-}
+
 
 std::string WrappedTextCacheKey(const std::string &text, int width, int size) {
   return std::to_string(width) + ":" + std::to_string(size) + ":" + text;
@@ -246,6 +244,58 @@ std::string FirstExisting(const std::vector<std::string> &paths) {
 }
 
 }  // namespace
+
+int GbaFrontend::TabCount() const {
+  return kTabCount + static_cast<int>(platform_tabs_.size());
+}
+
+int GbaFrontend::WrappedTabIndex(int index) const {
+  const int count = TabCount();
+  return (index % count + count) % count;
+}
+
+const char *GbaFrontend::TabLabel(int tab) const {
+  if (tab < kTabCount) return kTabs[tab];
+  const auto it = platform_by_tab_.find(tab);
+  if (it == platform_by_tab_.end()) return "?";
+  return it->second.c_str();
+}
+
+int GbaFrontend::TabWidth(int tab) const {
+  if (tab < kTabCount) return kTabWidths[tab];
+  const char *label = TabLabel(tab);
+  int units = 0;
+  for (const unsigned char *p = reinterpret_cast<const unsigned char *>(label); *p; ++p) {
+    if ((*p & 0xC0) == 0x80) continue;          // continuation byte
+    units += (*p < 0x80) ? 1 : 2;               // CJK counts double
+  }
+  return std::clamp(40 + units * 16, 78, 150);
+}
+
+const std::string *GbaFrontend::PlatformForTab(int tab) const {
+  if (tab < kTabCount) return nullptr;
+  const auto it = platform_by_tab_.find(tab);
+  return it == platform_by_tab_.end() ? nullptr : &it->second;
+}
+
+void GbaFrontend::BuildPlatformTabs() {
+  platform_tabs_.clear();
+  platform_by_tab_.clear();
+  static const char *const kOrder[] = {"FC", "SFC", "MD", "SMS", "GG", "GB", "GBC", "PCE", "WS", "NGP"};
+  std::vector<std::string> present;
+  for (const GbaGame &game : games_) {
+    if (IsExtendedPlatform(game.platform) &&
+        std::find(present.begin(), present.end(), game.platform) == present.end()) {
+      present.push_back(game.platform);
+    }
+  }
+  for (const char *platform : kOrder) {
+    if (std::find(present.begin(), present.end(), platform) != present.end()) {
+      platform_by_tab_[kTabCount + static_cast<int>(platform_tabs_.size())] = platform;
+      platform_tabs_.emplace_back(platform);
+    }
+  }
+}
 
 GbaFrontend::GbaFrontend(GbaFrontendOptions options)
     : options_(std::move(options)),
@@ -404,6 +454,7 @@ bool GbaFrontend::Initialize() {
   scan_report_ = ScanPegasusGbaRoots(options_.content_roots, options_.mod_overrides_path);
   const auto scan_finished = std::chrono::steady_clock::now();
   games_ = std::move(scan_report_.games);
+  BuildPlatformTabs();
   search_keys_.reserve(games_.size());
   for (const auto &game : games_) search_keys_.push_back(game_search::Key(game.title));
   state_.Load(&games_);
@@ -1220,6 +1271,10 @@ void GbaFrontend::Handle(Action action) {
   if (action == Action::CoreMenu) {
     description_highlighted_ = false;
     if (const GbaGame *game = SelectedGame()) {
+      if (game->platform != "GBA") {
+        SetOsd("该平台核心由系统自动选择");
+        return;
+      }
       core_menu_selected_ = static_cast<int>(game->core);
       core_menu_open_ = true;
     }
@@ -1256,7 +1311,7 @@ void GbaFrontend::Handle(Action action) {
     }
     tab_transition_from_ = active_tab_;
     tab_transition_direction_ = action == Action::TabNext ? 1 : -1;
-    active_tab_ = WrappedTab(active_tab_ + tab_transition_direction_);
+    active_tab_ = WrappedTabIndex(active_tab_ + tab_transition_direction_);
     selected_ = 0;
     scroll_row_ = 0;
     description_highlighted_ = false;
@@ -1311,8 +1366,17 @@ void GbaFrontend::Handle(Action action) {
       }
       state_.Save(games_);
       SetOsd(game->favorite ? "已加入收藏" : "已取消收藏");
-      if (!game->favorite && active_tab_ == kTabFavorite)
-        active_tab_ = game->is_rumble ? kTabRumble : game->is_mod ? kTabMod : kTabGba;
+      if (!game->favorite && active_tab_ == kTabFavorite) {
+        int target_tab = kTabGba;
+        if (game->platform != "GBA") {
+          for (const auto &[tab, platform] : platform_by_tab_) {
+            if (platform == game->platform) { target_tab = tab; break; }
+          }
+        } else {
+          target_tab = game->is_rumble ? kTabRumble : game->is_mod ? kTabMod : kTabGba;
+        }
+        active_tab_ = target_tab;
+      }
       RefreshVisible();
       const auto found = std::find_if(visible_.begin(), visible_.end(), [&](int index) {
         return games_[index].id == id;
@@ -1369,10 +1433,15 @@ void GbaFrontend::RefreshVisible() {
   for (int i = 0; i < static_cast<int>(games_.size()); ++i) {
     const GbaGame &game = games_[i];
     if (!game_search::Matches(search_keys_[i], search_query_)) continue;
-    if (active_tab_ == kTabRecent && game.recent_order == 0) continue;
-    if (active_tab_ == kTabGba && (game.is_mod || game.is_rumble)) continue;
-    if (active_tab_ == kTabMod && (!game.is_mod || game.is_rumble)) continue;
-    if (active_tab_ == kTabRumble && !game.is_rumble) continue;
+    const std::string *tab_platform = PlatformForTab(active_tab_);
+    if (tab_platform) {
+      if (game.platform != *tab_platform) continue;
+    } else {
+      if (active_tab_ == kTabRecent && game.recent_order == 0) continue;
+      if (active_tab_ == kTabGba && (game.is_mod || game.is_rumble)) continue;
+      if (active_tab_ == kTabMod && (!game.is_mod || game.is_rumble)) continue;
+      if (active_tab_ == kTabRumble && !game.is_rumble) continue;
+    }
     if (active_tab_ == kTabFavorite && !game.favorite) continue;
     visible_.push_back(i);
   }
@@ -1668,7 +1737,7 @@ void GbaFrontend::HandleHallState(int current) {
 void GbaFrontend::RestoreUiState() {
   GbaUiState saved;
   if (!ui_state_.Load(&saved)) return;
-  active_tab_ = std::clamp(saved.active_tab, 0, kTabCount - 1);
+  active_tab_ = std::clamp(saved.active_tab, 0, TabCount() - 1);
   scroll_row_ = std::max(0, saved.scroll_row);
   restored_scroll_row_ = scroll_row_;
   settings_open_ = false;
@@ -1755,39 +1824,39 @@ void GbaFrontend::RenderTopBar(int y_offset) {
   }
   if (tab_transition_direction_ == 0) {
     float x = 0.0f;
-    for (int slot = 0; slot < kTabCount; ++slot) {
-      const int tab = WrappedTab(active_tab_ + slot);
+    for (int slot = 0; slot < TabCount(); ++slot) {
+      const int tab = WrappedTabIndex(active_tab_ + slot);
       visuals.push_back({tab, x, 1.0f, slot == 0});
-      x += static_cast<float>(kTabWidths[tab]);
+      x += static_cast<float>(TabWidth(tab));
     }
   } else {
     const float eased = InOutQuad(progress);
     std::vector<int> old_order;
     std::vector<float> old_positions;
     float x = 0.0f;
-    for (int slot = 0; slot < kTabCount; ++slot) {
-      const int tab = WrappedTab(tab_transition_from_ + slot);
+    for (int slot = 0; slot < TabCount(); ++slot) {
+      const int tab = WrappedTabIndex(tab_transition_from_ + slot);
       old_order.push_back(tab);
       old_positions.push_back(x);
-      x += static_cast<float>(kTabWidths[tab]);
+      x += static_cast<float>(TabWidth(tab));
     }
     const float end_x = x;
 
     if (tab_transition_direction_ > 0) {
-      const float distance = static_cast<float>(kTabWidths[old_order.front()]);
+      const float distance = static_cast<float>(TabWidth(old_order.front()));
       visuals.push_back({old_order.front(), old_positions.front() - eased * distance,
                          1.0f - eased, false});
-      for (int slot = 1; slot < kTabCount; ++slot) {
+      for (int slot = 1; slot < TabCount(); ++slot) {
         visuals.push_back({old_order[slot], old_positions[slot] - eased * distance,
                            1.0f, old_order[slot] == active_tab_});
       }
       visuals.push_back({old_order.front(), end_x - eased * distance, eased, false});
     } else {
       const int incoming = active_tab_;
-      const float distance = static_cast<float>(kTabWidths[incoming]);
+      const float distance = static_cast<float>(TabWidth(incoming));
       visuals.push_back({incoming, -distance + eased * distance,
                          eased, true});
-      for (int slot = 0; slot < kTabCount - 1; ++slot) {
+      for (int slot = 0; slot < TabCount() - 1; ++slot) {
         visuals.push_back({old_order[slot], old_positions[slot] + eased * distance,
                            1.0f, false});
       }
@@ -1801,14 +1870,14 @@ void GbaFrontend::RenderTopBar(int y_offset) {
   for (const TabVisual &visual : visuals) {
     if (visual.selected) {
       FillRightSlantTab(renderer_, static_cast<int>(std::lround(visual.x)), 1,
-                        kTabWidths[visual.tab], 42, 8,
+                        TabWidth(visual.tab), 42, 8,
                         WithOpacity(theme.selected, visual.opacity));
     }
   }
   for (const TabVisual &visual : visuals) {
     const int tab_x = static_cast<int>(std::lround(visual.x));
-    const int width = kTabWidths[visual.tab];
-    DrawText(kTabs[visual.tab], tab_x + width / 2, 12, 16,
+    const int width = TabWidth(visual.tab);
+    DrawText(TabLabel(visual.tab), tab_x + width / 2, 12, 16,
              WithOpacity(visual.selected ? kInk : SDL_Color{160,164,170,255},
                          visual.opacity),
              width - 18, true);

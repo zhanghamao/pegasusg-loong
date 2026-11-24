@@ -27,6 +27,25 @@ inline GbaCore GbaCoreFromStorageName(const std::string &name) {
   return GbaCore::Mgba;
 }
 
+// Non-GBA platforms supported on LoongOS (mini-dragon) RetroArch cores.
+inline bool IsExtendedPlatform(const std::string &platform) {
+  return platform != "GBA" && !platform.empty();
+}
+
+inline const char *PlatformDefaultCore(const std::string &platform) {
+  if (platform == "FC") return "fceumm";
+  if (platform == "SFC") return "snes9x";
+  if (platform == "MD") return "genesis_plus_gx";
+  if (platform == "SMS") return "genesis_plus_gx";
+  if (platform == "GG") return "genesis_plus_gx";
+  if (platform == "GB") return "gambatte";
+  if (platform == "GBC") return "gambatte";
+  if (platform == "PCE") return "mednafen_pce";
+  if (platform == "WS") return "mednafen_wswan";
+  if (platform == "NGP") return "mednafen_ngp";
+  return "mgba";
+}
+
 struct GbaGame {
   std::string id;
   std::string title;
@@ -39,6 +58,8 @@ struct GbaGame {
   std::string logo_path;
   std::string video_path;
   std::string metadata_path;
+  std::string platform;        // "GBA", "FC", "SFC", "MD", "SMS", "GG", "GB", "PCE", ...
+  std::string metadata_core;   // raw core hint from metadata (any platform)
   bool is_mod = false;
   bool is_rumble = false;
   bool favorite = false;
@@ -49,7 +70,11 @@ struct GbaGame {
   bool core_overridden = false;
 };
 
-inline const char *GbaLaunchCoreName(const GbaGame &game) {
+inline std::string GbaLaunchCoreName(const GbaGame &game) {
+  // Metadata core hint wins (works for every platform).
+  if (!game.metadata_core.empty()) return game.metadata_core;
+  // Non-GBA platforms use their platform default core.
+  if (IsExtendedPlatform(game.platform)) return PlatformDefaultCore(game.platform);
   switch (game.core) {
     case GbaCore::Gpsp: return game.is_rumble ? "gpsp_rumble" : "gpsp";
     case GbaCore::Vbam: return "vbam";

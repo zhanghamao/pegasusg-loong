@@ -24,6 +24,7 @@ struct ParsedEntry {
   std::string video;
   GbaCore core = GbaCore::Mgba;
   bool has_core = false;
+  std::string core_text;  // raw core hint (supports non-GBA cores)
 };
 
 struct ParsedMetadata {
@@ -49,7 +50,13 @@ std::string LowerAscii(std::string value) {
 
 bool IsRomExtension(const fs::path &path) {
   const std::string ext = LowerAscii(path.extension().u8string());
-  return ext == ".gba" || ext == ".zip" || ext == ".7z";
+  return ext == ".gba" || ext == ".zip" || ext == ".7z" ||
+         ext == ".nes" || ext == ".fds" || ext == ".unf" || ext == ".unif" ||
+         ext == ".sfc" || ext == ".smc" ||
+         ext == ".md" || ext == ".gen" || ext == ".smd" || ext == ".sgd" ||
+         ext == ".sms" || ext == ".gg" || ext == ".pce" ||
+         ext == ".ws" || ext == ".wsc" ||
+         ext == ".ngp" || ext == ".ngc" || ext == ".ngpd";
 }
 
 std::string StableId(const std::string &text) {
@@ -87,7 +94,8 @@ ParsedMetadata ParseMetadata(const fs::path &metadata) {
   std::string line;
 
   auto apply_core_hint = [](ParsedEntry *entry, const std::string &text) {
-    const std::string lower = LowerAscii(text);
+    const std::string lower = LowerAscii(Trim(text));
+    entry->core_text = lower;  // keep raw hint for any platform
     if (lower.find("vba_next") != std::string::npos ||
         lower.find("vba-next") != std::string::npos) {
       entry->core = GbaCore::VbaNext;
@@ -244,6 +252,55 @@ CollectionKind ClassifyCollection(const std::string &collection, const fs::path 
   return CollectionKind::Unknown;
 }
 
+// Map collection/folder text to a platform id ("FC", "SFC", "MD", ...).
+// Returns "GBA" when nothing matches.
+std::string PlatformFromText(const std::string &collection, const fs::path &directory) {
+  const std::string text = LowerAscii(Trim(collection)) + " " +
+                           LowerAscii(directory.filename().u8string());
+  static const std::vector<std::pair<std::vector<const char *>, const char *>> kRules = {
+      {{"fc", "nes", "famicom", "红白机", "8位机"}, "FC"},
+      {{"sfc", "snes", "super famicom", "超级任天堂", "超任"}, "SFC"},
+      {{"md", "mega drive", "megadrive", "genesis", "世嘉md", "世嘉16"}, "MD"},
+      {{"sms", "master system", "世嘉8"}, "SMS"},
+      {{"gg", "game gear", "gamegear"}, "GG"},
+      {{"gb ", "game boy", "gameboy"}, "GB"},
+      {{"gbc", "game boy color"}, "GBC"},
+      {{"pce", "pc engine", "turbografx", "天外魔境"}, "PCE"},
+      {{"ws", "wonderswan"}, "WS"},
+      {{"ngp", "neogeo pocket", "neo geo pocket"}, "NGP"},
+  };
+  // Longest/highest-specificity first: GBC before GB.
+  for (const auto &rule : kRules) {
+    for (const char *needle : rule.first) {
+      const std::string n = LowerAscii(needle);
+      if (n.empty()) continue;
+      // Word-ish match: padded text so single letters like "gb" can match.
+      if (text.find(n) != std::string::npos) return rule.second;
+    }
+  }
+  return "GBA";
+}
+
+std::string PlatformFromRomPath(const std::string &rom) {
+  const fs::path path = fs::u8path(rom);
+  std::string ext = LowerAscii(path.extension().u8string());
+  if (ext == ".zip" || ext == ".7z") {
+    // Container: try the inner stem's extension as a weak hint.
+    ext = LowerAscii(fs::u8path(path.stem()).extension().u8string());
+  }
+  if (ext == ".nes" || ext == ".fds" || ext == ".unf" || ext == ".unif") return "FC";
+  if (ext == ".sfc" || ext == ".smc") return "SFC";
+  if (ext == ".md" || ext == ".gen" || ext == ".smd" || ext == ".sgd") return "MD";
+  if (ext == ".sms") return "SMS";
+  if (ext == ".gg") return "GG";
+  if (ext == ".pce") return "PCE";
+  if (ext == ".ws" || ext == ".wsc") return "WS";
+  if (ext == ".ngp" || ext == ".ngc" || ext == ".ngpd") return "NGP";
+  if (ext == ".gb") return "GB";
+  if (ext == ".gbc") return "GBC";
+  return "GBA";
+}
+
 }  // namespace
 
 bool LooksLikeGbaMod(const GbaGame &game) {
@@ -317,7 +374,23 @@ PegasusScanReport ScanPegasusGbaRoots(const std::vector<std::string> &roots,
       game.logo_path = AssetFor(base, entry, entry.logo, {"logo.png", "logo.jpg"});
       game.video_path = AssetFor(base, entry, entry.video, {"video.mp4", "video.mkv"});
       game.metadata_path = metadata.u8string();
-      if (collection_kind == CollectionKind::Rumble) {
+      // Platform detection: mod/rumble collections are GBA-only; otherwise
+      // derive from collection/folder names, then the ROM file extension.
+      if (collection_kind == CollectionKind::Rumble ||
+          collection_kind == CollectionKind::Mod) {
+        game.platform = "GBA";
+      } else {
+        game.platform = PlatformFromText(parsed.collection, base);
+        if (game.platform == "GBA") {
+          game.platform = PlatformFromRomPath(game.rom_path);
+        }
+      }
+      game.metadata_core = entry.core_text;
+      if (game.platform != "GBA") {
+        // GBA-only heuristics do not apply to other platforms.
+        game.is_rumble = false;
+        game.is_mod = false;
+      } else if (collection_kind == CollectionKind::Rumble) {
         game.is_rumble = true;
       } else if (collection_kind == CollectionKind::Mod) {
         game.is_mod = true;

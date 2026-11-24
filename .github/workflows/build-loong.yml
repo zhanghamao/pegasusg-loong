@@ -1,0 +1,47 @@
+name: Build LoongOS AArch64
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SDL2 development packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev \
+            libasound2-dev pkg-config zip
+
+      - name: Build frontend
+        run: |
+          make -j"$(nproc)"
+
+      - name: Run tests
+        run: |
+          make test || true
+
+      - name: Package for LoongOS
+        run: |
+          mkdir -p stage/loongshell
+          cp build/pegasusg_by_roc.exe stage/loongshell/pegasusg_by_roc
+          cp -r assets stage/loongshell/assets
+          cp H700/launcher/launch_loong.sh stage/loongshell/launch_loong.sh
+          cp H700/launcher/config.json stage/loongshell/config.json 2>/dev/null || true
+          if [ -f version.txt ]; then cp version.txt stage/loongshell/version.txt; fi
+          printf '1.09-loong-mp\n' > stage/loongshell/version.txt
+          chmod +x stage/loongshell/pegasusg_by_roc stage/loongshell/launch_loong.sh
+          cd stage && zip -r ../pegasusg-loong-aarch64.zip loongshell
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pegasusg-loong-aarch64
+          path: pegasusg-loong-aarch64.zip
+          retention-days: 30

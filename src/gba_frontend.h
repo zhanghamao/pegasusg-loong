@@ -86,6 +86,12 @@ class GbaFrontend {
   float CoverScale(int game_index, float fallback, Uint32 now);
   void RefreshVisible();
   void PrewarmNextGameAsset();
+  void BuildPlatformTabs();
+  int TabCount() const;
+  int WrappedTabIndex(int index) const;
+  const char *TabLabel(int tab) const;
+  int TabWidth(int tab) const;
+  const std::string *PlatformForTab(int tab) const;
   void SelectionChanged();
   void SelectEightBitTrack();
   void AdvanceEightBitTrack();
@@ -167,6 +173,8 @@ class GbaFrontend {
   std::uint64_t next_recent_order_ = 1;
 
   int active_tab_ = 1;
+  std::vector<std::string> platform_tabs_;                  // extra tabs beyond the 5 base ones
+  std::unordered_map<int, std::string> platform_by_tab_;    // tab index -> platform id
   int selected_ = 0;
   int scroll_row_ = 0;
   int description_scroll_line_ = 0;
