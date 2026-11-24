@@ -21,7 +21,9 @@ jobs:
 
       - name: Build frontend
         run: |
-          make -j"$(nproc)"
+          # 静态链接 libstdc++/libgcc：掌机系统库较老（GLIBCXX≤3.4.30），
+          # 动态链接会产生 GLIBCXX_3.4.32 缺失；静态链接后二进制自包含。
+          make -j"$(nproc)" LDFLAGS="-static-libstdc++ -static-libgcc"
 
       - name: Run tests
         run: |
